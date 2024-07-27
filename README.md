@@ -37,7 +37,7 @@
   <h3 align="center">Proxmox Task Discord Notifier</h3>
 
   <p align="center">
-    An awesome README template to jumpstart your projects!
+    A Bash Script to keep you informed of tasks running in your cluster.
     <br />
     <a href="https://github.com/ock666/proxmox-discord-notify"><strong>Explore the docs »</strong></a>
     <br />
@@ -114,7 +114,6 @@ Please read the steps outlined below before setting up or submitting any issues 
 
 ### Prerequisites
 
-This is an example of how to list things you need to use the software and how to install them.
 * Bash
 * Proxmox
 * Discord
@@ -131,6 +130,22 @@ _Below is an example of how you can instruct your audience on installing and set
    ```sh
    git clone https://github.com/ock666/proxmox-discord-notify
    ```
+2. Edit the bash script variables to include your secrets, so the script can retrieve tasks. If you want tasks from a specific node in Proxmox, you need to use the following URL format for the Proxmox API:
+   ```sh
+    /nodes/{node}/tasks
+   ```
+   For example, if your node is named pve, the URL would look like this:
+   ```sh
+   /nodes/pve/tasks
+   ```
+   where {node} is the name your of node.
+   
+   If you have special characters in your password be sure to escape the special characters.
+3. Run the script manually with
+   ```sh
+   ./proxmox-discord-bot.sh
+   ```
+   To see if you can call the Proxmox API successfully with your configuration.     
 2. Copy sh file to usr/local/bin
    ```sh
    cp proxmox-discord-bot.sh /usr/local/bin/
@@ -155,6 +170,7 @@ _Below is an example of how you can instruct your audience on installing and set
    ```sh
    systemctl status proxmox-notifier.service
    ```
+8. Check your Discord Channel for task messages!
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
