@@ -1,0 +1,15 @@
+[Unit]
+Description=Proxmox Task Notification Service
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/discord-bot.sh
+WorkingDirectory=/usr/local/bin
+Restart=always
+User=root
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=proxmox-notifier
+
+[Install]
+WantedBy=multi-user.target
