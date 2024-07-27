@@ -31,7 +31,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/ock666/proxmox-discord-notify">
-    <img src="images/proxmox.svg" alt="Logo" width="80" height="80">
+    <img src="images/proxmox.svg" alt="Logo">
   </a>
 
   <h3 align="center">Proxmox Task Discord Notifier</h3>
