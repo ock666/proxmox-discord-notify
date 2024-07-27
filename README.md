@@ -178,7 +178,7 @@ To run the notifier manually, use the following command:
 
 ```bash
 ./proxmox_task_notifier.sh
-
+```
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
