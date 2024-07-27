@@ -81,8 +81,6 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-[![Proxmox Task Discord Notifier Screenshot][product-screenshot]](https://example.com)
-
 The Proxmox Task Discord Notifier is designed to streamline task monitoring in Proxmox by providing real-time notifications directly to a Discord channel. It addresses the need for immediate alerts about task events, allowing you to stay updated on important actions within your Proxmox environment without constantly checking the web interface.
 
 Here's why this project is valuable:
