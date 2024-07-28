@@ -2,11 +2,9 @@
 
 # Configuration
 PROXMOX_API_URL="https://<your-proxmox-server-ip>:8006/api2/json/cluster/tasks"
-PROXMOX_USERNAME="<your-username>@pam"
-PROXMOX_PASSWORD="your-password>"  # Replace with your actual password
-DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/"  # Replace with your Discord webhook URL
+PROXMOX_API_KEY="PVEAPIToken=<your-username>!<your-token-name>=<your-api-key>"
+DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/<your-webhook-url>"  # Replace with your Discord webhook URL
 CHECK_INTERVAL=10  # Check every 10 seconds
-TICKET_FILE="/tmp/proxmox_ticket.json"
 SENT_TASKS_FILE="/tmp/sent_tasks.txt"
 
 # Function to send notification to Discord
@@ -15,57 +13,6 @@ send_discord_notification() {
     echo "$(date): Sending notification to Discord: $message"
     curl -H "Content-Type: application/json" -d "$message" $DISCORD_WEBHOOK_URL
     echo "$(date): Notification sent."
-}
-
-# Function to get a new PVE ticket
-get_proxmox_ticket() {
-    echo "$(date): Fetching new PVE ticket..."
-    response=$(curl -s -k -d "username=$PROXMOX_USERNAME&password=$PROXMOX_PASSWORD" https://192.168.0.50:8006/api2/json/access/ticket)
-    if [ $? -ne 0 ]; then
-        echo "$(date): Failed to fetch ticket from Proxmox API."
-        exit 1
-    fi
-    echo "$response" > "$TICKET_FILE"
-    echo "$(date): New ticket fetched."
-}
-
-# Function to load the existing PVE ticket
-load_ticket() {
-    if [ -f "$TICKET_FILE" ]; then
-        ticket_data=$(cat "$TICKET_FILE")
-        TICKET=$(echo "$ticket_data" | jq -r '.data.ticket')
-        CSRF_TOKEN=$(echo "$ticket_data" | jq -r '.data.CSRFPreventionToken')
-    else
-        get_proxmox_ticket
-        load_ticket
-    fi
-}
-
-# Function to remove old PVE ticket
-remove_old_ticket() {
-    echo "$(date): Removing old PVE ticket if it exists..."
-    rm -f "$TICKET_FILE"
-    echo "$(date): Old ticket removed."
-}
-
-# Function to check if the ticket is expired
-check_ticket() {
-    if [ -f "$TICKET_FILE" ]; then
-        ticket_expired=false
-        # Add logic to determine if the ticket is expired
-        # For simplicity, we just check if the file exists
-        if [ ! -s "$TICKET_FILE" ]; then
-            ticket_expired=true
-        fi
-    else
-        ticket_expired=true
-    fi
-
-    if [ "$ticket_expired" = true ]; then
-        echo "$(date): Ticket expired or not found. Fetching a new ticket..."
-        get_proxmox_ticket
-        load_ticket
-    fi
 }
 
 # Function to check if a task has been sent
@@ -84,9 +31,6 @@ mark_task_as_sent() {
     echo "$task_id" >> "$SENT_TASKS_FILE"
 }
 
-# Remove old PVE ticket at the start
-remove_old_ticket
-
 # Send a test notification upon script start
 test_message=$(cat <<EOF
 {
@@ -104,18 +48,16 @@ echo "$(date): Test notification sent."
 
 # Main loop
 while true; do
-    check_ticket
-
     # Fetch tasks from Proxmox API
     echo "$(date): Fetching tasks from Proxmox API..."
-    response=$(curl -s -k -H "Authorization: PVEAuthCookie=$TICKET" -H "CSRFPreventionToken: $CSRF_TOKEN" $PROXMOX_API_URL)
+    response=$(curl -s -k -H "Authorization: $PROXMOX_API_KEY" $PROXMOX_API_URL)
 
     # Debugging response
     curl_exit_code=$?
     echo "$(date): Curl exit code: $curl_exit_code"
 
     if [ $curl_exit_code -ne 0 ]; then
-        echo "$(date): Curl error: $(curl -v -k -H "Authorization: PVEAuthCookie=$TICKET" -H "CSRFPreventionToken: $CSRF_TOKEN" $PROXMOX_API_URL 2>&1)"
+        echo "$(date): Curl error: $(curl -v -k -H "Authorization: $PROXMOX_API_KEY" $PROXMOX_API_URL 2>&1)"
         echo "$(date): No response from API. Check your API URL and token."
         sleep $CHECK_INTERVAL
         continue
