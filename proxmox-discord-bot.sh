@@ -3,29 +3,30 @@
 # Configuration
 PROXMOX_API_URL="https://<your-proxmox-server-ip>:8006/api2/json/cluster/tasks"
 PROXMOX_USERNAME="<your-username>@pam"
-PROXMOX_PASSWORD="<your-password>"  # Replace with your actual password
-DISCORD_WEBHOOK_URL="https://discordapp.com/api/webhooks/<webhook-id>/<webhook-token>"  # Replace with your Discord webhook URL
-CHECK_INTERVAL=5  # Check every 60 seconds
+PROXMOX_PASSWORD="your-password>"  # Replace with your actual password
+DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/"  # Replace with your Discord webhook URL
+CHECK_INTERVAL=10  # Check every 10 seconds
 TICKET_FILE="/tmp/proxmox_ticket.json"
+SENT_TASKS_FILE="/tmp/sent_tasks.txt"
 
 # Function to send notification to Discord
 send_discord_notification() {
     local message="$1"
-    echo "Sending notification to Discord: $message"  # Debug
+    echo "$(date): Sending notification to Discord: $message"
     curl -H "Content-Type: application/json" -d "$message" $DISCORD_WEBHOOK_URL
-    echo "Notification sent."  # Debug
+    echo "$(date): Notification sent."
 }
 
 # Function to get a new PVE ticket
 get_proxmox_ticket() {
-    echo "Fetching new PVE ticket..."  # Debug
-    response=$(curl -s -k -d "username=$PROXMOX_USERNAME&password=$PROXMOX_PASSWORD" $PROXMOX_API_URL/access/ticket)
+    echo "$(date): Fetching new PVE ticket..."
+    response=$(curl -s -k -d "username=$PROXMOX_USERNAME&password=$PROXMOX_PASSWORD" https://192.168.0.50:8006/api2/json/access/ticket)
     if [ $? -ne 0 ]; then
-        echo "Failed to fetch ticket from Proxmox API."  # Debug
+        echo "$(date): Failed to fetch ticket from Proxmox API."
         exit 1
     fi
     echo "$response" > "$TICKET_FILE"
-    echo "New ticket fetched."  # Debug
+    echo "$(date): New ticket fetched."
 }
 
 # Function to load the existing PVE ticket
@@ -42,9 +43,9 @@ load_ticket() {
 
 # Function to remove old PVE ticket
 remove_old_ticket() {
-    echo "Removing old PVE ticket if it exists..."  # Debug
+    echo "$(date): Removing old PVE ticket if it exists..."
     rm -f "$TICKET_FILE"
-    echo "Old ticket removed."  # Debug
+    echo "$(date): Old ticket removed."
 }
 
 # Function to check if the ticket is expired
@@ -61,10 +62,26 @@ check_ticket() {
     fi
 
     if [ "$ticket_expired" = true ]; then
-        echo "Ticket expired or not found. Fetching a new ticket..."  # Debug
+        echo "$(date): Ticket expired or not found. Fetching a new ticket..."
         get_proxmox_ticket
         load_ticket
     fi
+}
+
+# Function to check if a task has been sent
+task_already_sent() {
+    local task_id="$1"
+    if grep -q "$task_id" "$SENT_TASKS_FILE"; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to mark a task as sent
+mark_task_as_sent() {
+    local task_id="$1"
+    echo "$task_id" >> "$SENT_TASKS_FILE"
 }
 
 # Remove old PVE ticket at the start
@@ -81,88 +98,76 @@ test_message=$(cat <<EOF
 }
 EOF
 )
-echo "Sending test notification..."  # Debug
+echo "$(date): Sending test notification..."
 send_discord_notification "$test_message"
-echo "Test notification sent."  # Debug
+echo "$(date): Test notification sent."
 
 # Main loop
 while true; do
     check_ticket
 
     # Fetch tasks from Proxmox API
-    echo "Fetching tasks from Proxmox API..."  # Debug
+    echo "$(date): Fetching tasks from Proxmox API..."
     response=$(curl -s -k -H "Authorization: PVEAuthCookie=$TICKET" -H "CSRFPreventionToken: $CSRF_TOKEN" $PROXMOX_API_URL)
 
     # Debugging response
     curl_exit_code=$?
-    echo "Curl exit code: $curl_exit_code"  # Debug
+    echo "$(date): Curl exit code: $curl_exit_code"
 
     if [ $curl_exit_code -ne 0 ]; then
-        echo "Curl error: $(curl -v -k -H "Authorization: PVEAuthCookie=$TICKET" -H "CSRFPreventionToken: $CSRF_TOKEN" $PROXMOX_API_URL 2>&1)"  # Debug
-        echo "No response from API. Check your API URL and token."  # Debug
+        echo "$(date): Curl error: $(curl -v -k -H "Authorization: PVEAuthCookie=$TICKET" -H "CSRFPreventionToken: $CSRF_TOKEN" $PROXMOX_API_URL 2>&1)"
+        echo "$(date): No response from API. Check your API URL and token."
         sleep $CHECK_INTERVAL
         continue
     fi
 
-    echo "API response: $response"  # Debug
+    echo "$(date): API response: $response"
 
     # Check if response is empty or has errors
     if [ -z "$response" ]; then
-        echo "No response from API. Check your API URL and token."  # Debug
+        echo "$(date): No response from API. Check your API URL and token."
         sleep $CHECK_INTERVAL
         continue
     fi
 
     # Print the raw API response for inspection
-    echo "Raw API response: $response"  # Debug
+    echo "$(date): Raw API response: $response"
 
     # Parse the response and extract tasks
     tasks=$(echo $response | jq -r '.data[] | @base64')
 
     if [ -z "$tasks" ]; then
-        echo "No tasks found in response."  # Debug
+        echo "$(date): No tasks found in response."
     else
-        echo "Tasks found: $tasks"  # Debug
+        echo "$(date): Tasks found: $tasks"
     fi
 
-    # Convert tasks to a sortable format
-    sortable_tasks=$(for task in $tasks; do
-        task_start_time=$(echo ${task} | base64 --decode | jq -r '.starttime')
-        echo "${task_start_time} ${task}" 
-    done | sort -n | cut -d ' ' -f2-)
-
-    # Store previously processed task IDs
-    processed_task_ids=$(cat /tmp/processed_tasks.txt 2>/dev/null || echo "")
-
-    for task in $sortable_tasks; do
+    for task in $tasks; do
         _jq() {
             echo ${task} | base64 --decode | jq -r ${1}
         }
 
-        task_id=$(_jq '.upid')
-        if echo "$processed_task_ids" | grep -q "$task_id"; then
-            echo "Task ID $task_id already processed."  # Debug
-            continue
-        fi
-
         task_status=$(_jq '.status')
+        task_id=$(_jq '.upid')
         task_start_time=$(_jq '.starttime')
         task_end_time=$(_jq '.endtime')
         task_node=$(_jq '.node')
 
         # Debug information for each task
-        echo "Processing task ID: $task_id"  # Debug
-        echo "Status: $task_status"  # Debug
-        echo "Start Time: $task_start_time"  # Debug
-        echo "End Time: $task_end_time"  # Debug
-        echo "Node: $task_node"  # Debug
+        echo "$(date): Processing task ID: $task_id"
+        echo "$(date): Status: $task_status"
+        echo "$(date): Start Time: $task_start_time"
+        echo "$(date): End Time: $task_end_time"
+        echo "$(date): Node: $task_node"
+
+        # Check if task has already been sent
+        if task_already_sent "$task_id"; then
+            echo "$(date): Task ID $task_id has already been sent. Skipping..."
+            continue
+        fi
 
         # Convert the start and end times to human-readable format
-        if [ "$task_start_time" != "null" ]; then
-            start_time=$(date -d @$task_start_time +"%Y-%m-%d %H:%M:%S")
-        else
-            start_time="Unknown"
-        fi
+        start_time=$(date -d @$task_start_time +"%Y-%m-%d %H:%M:%S")
         if [ "$task_end_time" != "null" ]; then
             end_time=$(date -d @$task_end_time +"%Y-%m-%d %H:%M:%S")
         else
@@ -180,15 +185,13 @@ while true; do
 }
 EOF
 )
-        echo "Sending notification for task ID: $task_id"  # Debug
+        echo "$(date): Sending notification for task ID: $task_id"
         send_discord_notification "$task_message"
-        echo "Notification for task ID: $task_id sent."  # Debug
-
-        # Log the processed task ID
-        echo "$task_id" >> /tmp/processed_tasks.txt
+        mark_task_as_sent "$task_id"
+        echo "$(date): Notification for task ID: $task_id sent."
     done
 
-    echo "Sleeping for $CHECK_INTERVAL seconds..."  # Debug
+    echo "$(date): Sleeping for $CHECK_INTERVAL seconds..."
     # Sleep for the check interval
     sleep $CHECK_INTERVAL
 done
