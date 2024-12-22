@@ -3,7 +3,7 @@ Description=Proxmox Task Notification Service
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/discord-bot.sh
+ExecStart=/usr/local/bin/proxmox-discord-bot.sh
 WorkingDirectory=/usr/local/bin
 Restart=always
 User=root
