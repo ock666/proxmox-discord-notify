@@ -115,9 +115,9 @@ Please read the steps outlined below before setting up or submitting any issues 
 * Bash
 * Proxmox
 * Discord
-* jz
+* jq
   ```sh
-  apt install jz -y
+  apt install jq -y
   ```
 
 ### Installation
