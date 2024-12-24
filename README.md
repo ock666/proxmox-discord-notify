@@ -90,8 +90,6 @@ Here's why this project is valuable:
 
 We aim to make task monitoring in Proxmox more effective and less cumbersome by bringing essential updates directly to your communication platform. You can enhance this project by forking the repo and submitting pull requests or by opening issues for suggestions.
 
-For detailed setup and usage instructions, please refer to the [Documentation](https://github.com/your_username/proxmox-task-notifier/wiki).
-
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
@@ -120,15 +118,23 @@ Please read the steps outlined below before setting up or submitting any issues 
   apt install jq -y
   ```
 
-### Installation
+#### Audit user
 
-_Below is an example of how you can instruct your audience on installing and setting up your app. This template doesn't rely on any external dependencies or services._
+1. In Proxmox UI create user `discord_monitor`, do not define a password.
+2. Create API token for the user
+3. Click on permissions and add API token permissions 
+  path /
+  Role PVEAudior
+
+### Installation
 
 1. Clone the repo
    ```sh
+   cd /opt
    git clone https://github.com/ock666/proxmox-discord-notify
    ```
-2. Edit the bash script variables to include your secrets, so the script can retrieve tasks. If you want tasks from a specific node in Proxmox, you need to use the following URL format for the Proxmox API:
+2. Copy the env.example to .env and update the variables to include your secrets, so the script can retrieve tasks. 
+3. Update the config file to point to your Proxmox server. If you want tasks from a specific node in Proxmox, you need to use the following URL format for the Proxmox API:
    ```sh
     /nodes/{node}/tasks
    ```
@@ -139,36 +145,32 @@ _Below is an example of how you can instruct your audience on installing and set
    where {node} is the name your of node.
    
    If you have special characters in your password be sure to escape the special characters.
-3. Run the script manually with
+4. Run the script manually with
    ```sh
    ./proxmox-discord-bot.sh
    ```
    To see if you can call the Proxmox API successfully with your configuration.     
-2. Copy sh file to usr/local/bin
-   ```sh
-   cp proxmox-discord-bot.sh /usr/local/bin/
-   ```
-3. Copy the service file
+5. Copy the service file
    ```sh
    cp proxmox-notifier.service /etc/systemd/system/
    ```
-4. Reload Systemd: Inform systemd of the new service file.
+6. Reload Systemd: Inform systemd of the new service file.
    ```sh
    systemctl daemon-reload
    ```
-5. Enable the Service: Configure the service to start on boot.
+7. Enable the Service: Configure the service to start on boot.
    ```sh
    systemctl enable proxmox-notifier.service
    ```
-6. Start the Service: Start the service immediately.
+8. Start the Service: Start the service immediately.
    ```sh
    systemctl start proxmox-notifier.service
    ```
-7. Check Service Status: Verify that the service is running correctly.
+9. Check Service Status: Verify that the service is running correctly.
    ```sh
    systemctl status proxmox-notifier.service
    ```
-8. Check your Discord Channel for task messages!
+10. Check your Discord Channel for task messages!
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

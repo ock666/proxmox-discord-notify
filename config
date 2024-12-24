@@ -1,0 +1,4 @@
+# configs
+PROXMOX_API_URL="https://<your-proxmox-server-ip>:8006/api2/json/cluster/tasks"
+CHECK_INTERVAL=600 # Check every 10 minutes
+SENT_TASKS_FILE="/tmp/sent_tasks.txt"
