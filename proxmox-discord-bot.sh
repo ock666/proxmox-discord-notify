@@ -1,17 +1,15 @@
 #!/bin/bash
 
+# secrets
+. .env
 # Configuration
-PROXMOX_API_URL="https://<your-proxmox-server-ip>:8006/api2/json/cluster/tasks"
-PROXMOX_API_KEY="PVEAPIToken=<your-username>!<your-token-name>=<your-api-key>"
-DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/<your-webhook-url>"  # Replace with your Discord webhook URL
-CHECK_INTERVAL=10  # Check every 10 seconds
-SENT_TASKS_FILE="/tmp/sent_tasks.txt"
+. config
 
 # Function to send notification to Discord
 send_discord_notification() {
     local message="$1"
     echo "$(date): Sending notification to Discord: $message"
-    curl -H "Content-Type: application/json" -d "$message" $DISCORD_WEBHOOK_URL
+    curl -H "Content-Type: application/json" -d "$message" "$DISCORD_WEBHOOK_URL"
     echo "$(date): Notification sent."
 }
 
@@ -50,16 +48,16 @@ echo "$(date): Test notification sent."
 while true; do
     # Fetch tasks from Proxmox API
     echo "$(date): Fetching tasks from Proxmox API..."
-    response=$(curl -s -k -H "Authorization: $PROXMOX_API_KEY" $PROXMOX_API_URL)
+    response=$(curl -s -k -H "Authorization: $PROXMOX_API_KEY" "$PROXMOX_API_URL")
 
     # Debugging response
     curl_exit_code=$?
     echo "$(date): Curl exit code: $curl_exit_code"
 
     if [ $curl_exit_code -ne 0 ]; then
-        echo "$(date): Curl error: $(curl -v -k -H "Authorization: $PROXMOX_API_KEY" $PROXMOX_API_URL 2>&1)"
+        echo "$(date): Curl error: $(curl -v -k -H "Authorization: $PROXMOX_API_KEY" "$PROXMOX_API_URL" 2>&1)"
         echo "$(date): No response from API. Check your API URL and token."
-        sleep $CHECK_INTERVAL
+        sleep "$CHECK_INTERVAL"
         continue
     fi
 
@@ -68,7 +66,7 @@ while true; do
     # Check if response is empty or has errors
     if [ -z "$response" ]; then
         echo "$(date): No response from API. Check your API URL and token."
-        sleep $CHECK_INTERVAL
+        sleep "$CHECK_INTERVAL"
         continue
     fi
 
@@ -76,7 +74,7 @@ while true; do
     echo "$(date): Raw API response: $response"
 
     # Parse the response and extract tasks
-    tasks=$(echo $response | jq -r '.data[] | @base64')
+    tasks=$(echo "$response" | jq -r '.data[] | @base64')
 
     if [ -z "$tasks" ]; then
         echo "$(date): No tasks found in response."
@@ -86,7 +84,7 @@ while true; do
 
     for task in $tasks; do
         _jq() {
-            echo ${task} | base64 --decode | jq -r ${1}
+            echo "${task}" | base64 --decode | jq -r "${1}"
         }
 
         task_status=$(_jq '.status')
@@ -109,9 +107,9 @@ while true; do
         fi
 
         # Convert the start and end times to human-readable format
-        start_time=$(date -d @$task_start_time +"%Y-%m-%d %H:%M:%S")
+        start_time=$(date -d @"$task_start_time" +"%Y-%m-%d %H:%M:%S")
         if [ "$task_end_time" != "null" ]; then
-            end_time=$(date -d @$task_end_time +"%Y-%m-%d %H:%M:%S")
+            end_time=$(date -d @"$task_end_time" +"%Y-%m-%d %H:%M:%S")
         else
             end_time="Running"
         fi
@@ -135,6 +133,6 @@ EOF
 
     echo "$(date): Sleeping for $CHECK_INTERVAL seconds..."
     # Sleep for the check interval
-    sleep $CHECK_INTERVAL
+    sleep "$CHECK_INTERVAL"
 done
 
